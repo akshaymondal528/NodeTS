@@ -3,6 +3,7 @@ export interface EnvType {
   NODE_ENV: string;
   PORT: number;
   MONGO_URI: string;
+  REDIS_URI: string;
 }
 
 /** Status code types interface */

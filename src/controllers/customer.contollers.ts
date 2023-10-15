@@ -1,5 +1,7 @@
 /** Global imports */
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
+import { RedisClientType } from 'redis';
 
 /** Local imports */
 import {
@@ -8,7 +10,7 @@ import {
   clientErrorResponse,
 } from '../utils/response.utils';
 import { Customer } from '../models/customer.models';
-import mongoose from 'mongoose';
+import { Redis } from '../config/redis.config';
 
 /**
  * @function getAllCustomers
@@ -21,11 +23,24 @@ export const getAllCustomers = async (
   res: Response
 ): Promise<object> => {
   try {
-    const customers: object = await Customer.find(
-      { isDeleted: false },
-      { name: 1, contact_no: 1 }
-    );
-    return successResponse(res, 'Customers', customers);
+    const client: RedisClientType = await Redis();
+    const getRD: string | null = client
+      ? await client.get('/api/v1/customers')
+      : null;
+    let result: Array<object> = [];
+    if (!getRD) {
+      const customers: Array<object> = await Customer.find(
+        { isDeleted: false },
+        { name: 1, contact_no: 1 }
+      );
+      await client.set('/api/v1/customers', JSON.stringify(customers), {
+        EX: 60 * 60, // 1 hour
+      });
+      result = customers;
+    } else {
+      result = JSON.parse(getRD);
+    }
+    return successResponse(res, 'Customers', result);
   } catch (error) {
     return serverErrorResponse(res);
   }
